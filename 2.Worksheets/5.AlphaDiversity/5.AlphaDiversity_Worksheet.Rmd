@@ -1,6 +1,6 @@
 ---
 title: '5\. Worksheet: Alpha Diversity'
-author: "Student Name; Z620: Quantitative Biodiversity, Indiana University"
+author: "Erica Nadolski; Z620: Quantitative Biodiversity, Indiana University"
 date: "`r format(Sys.time(), '%d %B, %Y')`"
 output: pdf_document
 geometry: margin = 2.54cm
@@ -36,10 +36,11 @@ In the R code chunk below, please provide the code to:
 4) Load the `vegan` R package (be sure to install first if you haven't already).
 
 ```{r}
-
-
-
-
+rm()
+getwd()
+setwd("/Users/emnadols/GitHub/QB2023_Nadolski/2.Worksheets/5.AlphaDiversity")
+install.packages("vegan")
+require("vegan")
 ```
 
 ## 2) LOADING DATA
@@ -49,8 +50,8 @@ In the R code chunk below, do the following:
 2) Display the structure of the dataset (if the structure is long, use the `max.level = 0` argument to show the basic information).
 
 ```{r}
-
-
+data(BCI)
+str(BCI, max.level=0)
 ```
 
 ## 3) SPECIES RICHNESS
@@ -69,16 +70,20 @@ In the R code chunk below, do the following:
 
 ```{r}
 
-# S.obs <- function(   ){
-#   rowSums(     ) * 
-#   }
+S.obs <- function(x = ""){
+  rowSums(x > 0) * 1
+    }
 
+S.obs(BCI[1,])
+specnumber(BCI[1,])
+
+S.obs(BCI[1:4,])
 ```
 
 ***Question 1***: Does `specnumber()` from `vegan` return the same value for observed richness in `site1` as our function `S.obs`?
 What is the species richness of the first four sites (i.e., rows) of the BCI matrix?
 
-> ***Answer 1***:
+> ***Answer 1***: Yes, our DIY function returns the same richness value as the vegan function. Richness for site 1 is 93 species, site 2 is 84 species, site 3 is 90 species, site 4 is 94 species.
 
 
 
@@ -91,8 +96,14 @@ In the R code chunk below, do the following:
 2. Use that function to calculate coverage for all sites in the BCI matrix.
 
 ```{r}
+C <- function(x = ""){
+  1 - (rowSums(x==1) / rowSums(x))
+}
 
-
+coverage <- cbind(C(BCI[1:50,]))
+max(coverage)
+min(coverage)
+mean(coverage)
 ```
   
 ***Question 2***: Answer the following questions about coverage:
@@ -102,13 +113,13 @@ b.  What would we conclude from Good's Coverage if $n_{i}$ equaled *N*?
 c.  What portion of taxa in `site1` was represented by singletons? 
 d.  Make some observations about coverage at the BCI plots.
 
-> ***Answer 2a***:  
+> ***Answer 2a***:  Good's coverage metric is basically a percentage of how much coverage of the total biodiversity you captured so the values can be between 0 and 1.
 
-> ***Answer 2b***:  
+> ***Answer 2b***:  If n1 equaled N then the calculation would be C = 1 - 1 = 0 so it would be a very low coverage ( it doesn't make sense to say the coverage is 0 but it is impossible to tell how little coverage you achieved).
 
-> ***Answer 2c***:  
+> ***Answer 2c***:  7% was singletons
 
-> ***Answer 2d***:  
+> ***Answer 2d***:  The coverage for the BCI sites ranged from 87% to 94%, with a mean of 92%, which seems consistent and high overall, which will benefit future analyses and comparisons.
 
 
 ### Estimated richness
@@ -127,11 +138,16 @@ In the R code chunk below, do the following:
 
 ```{r}
 
+soilbac <- read.table("data/soilbac.txt", sep = "\t", header=TRUE, row.names=1)
 
+soilbac.t <- as.data.frame(t(soilbac))
+soilbac1 <- soilbac.t[1,]
 
+S.obs(soilbac1)
 
+C(soilbac1)
 
-
+sum(soilbac1[,1:11310])
 ```
 
 ***Question 3***: Answer the following questions about the soil bacterial dataset. 
@@ -140,11 +156,11 @@ a.  How many sequences did we recover from the sample `soilbac1`, i.e. *N*?
 b.  What is the observed richness of `soilbac1`? 
 c.  How does coverage compare between the BCI sample (`site1`) and the KBS sample (`soilbac1`)?
 
-> ***Answer 3a***:  
+> ***Answer 3a***:  2025 total sequences
 
-> ***Answer 3b***: 
+> ***Answer 3b***: 1074 OTUs
 
-> ***Answer 3c***:  
+> ***Answer 3c***:  coverage of soilbac1 was 0.65, so about 30% lower than BCI; this makes sense though as it is much easier to count medium-size trees as they did in BCI than to expect that DNA extractions would recover as high of a coverage from a bacterial sample from the environment.
 
 
 ### Richness estimators
@@ -160,20 +176,54 @@ In the R code chunk below, do the following:
 4. Use these functions to estimate richness at `site1` and `soilbac1`. 
 
 ```{r}
+S.chao1 <- function(x = ""){
+  S.obs(x) + (sum(x==1)^2) / (2 * sum(x==2))
+}
+
+S.chao2 <- function(site = "", SbyS = ""){
+  SbyS = as.data.frame(SbyS)
+  x = SbyS[site,]
+  SbyS.pa <- (SbyS > 0) * 1 #convert SbyS to presence/absence
+  Q1 = sum(colSums(SbyS.pa) ==1) #spp. observed once
+  Q2 = sum(colSums(SbyS.pa) ==2) #spp. observed twice
+  S.chao2 = S.obs(x) + (Q1^2)/(2*Q2)
+  return(S.chao2)
+}
 
 
+S.ace <- function(x = "", thresh=10){
+  x <- x[x>0]                           #excludes zero-abundance taxa
+  S.abund <- length(which(x > thresh)) #richness of abundant taxa
+  S.rare <- length(which(x <= thresh)) #richness of rare taxa
+  singlt <- length(which(x == 1)) #number of singletons
+  N.rare <- sum(x[which(x <= thresh)]) #abundance of rare taxa
+  C.ace <- 1 - (singlt/N.rare) #coverage (proportion non-singleton rare taxa)
+  i <- c(1:thresh)            #threshold abundance range
+  count <- function(i,y){     #counter to go through i range
+    length(y[y==i])
+  }
+  a.1 <- sapply(i, count, x) #number of individuals in richness i richness classes
+  f.1 <- (i * (i - 1)) * a.1 #k(k-1)kf sensu Gotelli
+  G.ace <- (S.rare/C.ace)*(sum(f.1)/(N.rare*(N.rare-1)))
+  S.ace <- S.abund + (S.rare/C.ace) + (singlt/C.ace) * max(G.ace,0)
+  return(S.ace)
+}
 
+S.chao1(BCI[1,])
+S.chao1(soilbac1)
 
+S.chao2("1", BCI)
+S.chao2("T1_1",soilbac.t)
 
-
-
-
+S.ace(BCI[1,],thresh=10)
+S.ace(soilbac1,thresh=10)
 ```
 
 ***Question 4***: What is the difference between ACE and the Chao estimators? Do the estimators give consistent results? Which one would you choose to use and why?
 
 > ***Answer 4***:
-
+For the BCI site, Chao1 gave estimated richness of ~120 spp, Chao2: 104, and ACE: 159.
+For the soilbac data, Chao1: 2629 spp, Chao2: 21055, and ACE: 4466. The estimators give more consistent results for datasets with fewer rare taxa (BCI), but for the bacterial data the estimates differed by an order of magnitude.I would probably choose to use Chao1 since it seems the simplest to interpret :-)
 
 
 ### Rarefaction
@@ -192,12 +242,14 @@ In the R code chunk below, please do the following:
 
 
 ```{r}
+bac.Richness <- S.obs(soilbac.t[,1:13310])
+sample.sizes <- rowSums(soilbac.t)
+min.N <- min(sample.sizes)
+S.rarefy <- rarefy(x = soilbac.t, sample=min.N, se=TRUE)
 
-
-
-
-
-
+rarecurve(x = soilbac.t, step=20, col="blue", cex=0.6, las=1);
+abline(0, 1, col="red");
+text(1500, 1500, "1:1", pos=2, col="red")
 ```
 
 
