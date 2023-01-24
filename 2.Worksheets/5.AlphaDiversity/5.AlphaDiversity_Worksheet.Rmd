@@ -344,7 +344,7 @@ In the R code chunk below, please do the following:
 
 3. Compare $E_{1/D}$ and $E_{var}$.
 
-```{r}
+```{r, echo=FALSE}
 
 Evar <- function(x){
   x <- as.vector(x[x > 0])
@@ -568,15 +568,15 @@ hist(rac, breaks = breaks, main = paste("Histogram of BCI Site 1 Abundances"), x
 
 ### Project site by species matrix
 
-Ponds97 <- as.matrix(read.csv("/Users/ericanadolski/GitHub/QB2023_Nadolski/TeamProject/Pond97.csv", row.names=1))
+Ponds97 <- as.matrix(read.csv("/Users/ericanadolski/GitHub/TeamProject/Ponds97.csv", row.names=1))
 # raw read data matrix
 
-Ponds.pa <- as.matrix(read.csv("/Users/ericanadolski/GitHub/QB2023_Nadolski/TeamProject/PondsPA.csv", row.names=1))
+#Ponds.pa <- as.matrix(read.csv("/Users/ericanadolski/GitHub/TeamProject/Ponds.pa.csv", row.names=1))
 # presence/absence matrix
-Ponds.rel <- as.matrix(read.csv("/Users/ericanadolski/GitHub/QB2023_Nadolski/TeamProject/PondsREL.csv", row.names=1))
+#Ponds.rel <- as.matrix(read.csv("/Users/ericanadolski/GitHub/TeamProject/Ponds.rel.csv", row.names=1))
 # relative abundance matrix
 
-Ponds.env <- as.matrix(read.csv("/Users/ericanadolski/GitHub/QB2023_Nadolski/TeamProject/PondENV.csv", row.names=2)) # environmental data
+Ponds.env <- as.matrix(read.csv("/Users/ericanadolski/GitHub/TeamProject/Ponds.env.csv", row.names=1)) # environmental data
 
 nrow(Ponds.env) # number of sites
 ncol(Ponds97)
