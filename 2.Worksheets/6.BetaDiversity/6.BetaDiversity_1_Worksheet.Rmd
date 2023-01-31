@@ -1,9 +1,11 @@
 ---
 title: '8\. Worksheet: Among Site (Beta) Diversity -- Part 1'
-author: "Student Name; Z620: Quantitative Biodiversity, Indiana University"
+author: "Erica Nadolski; Z620: Quantitative Biodiversity, Indiana University"
 date: "`r format(Sys.time(), '%d %B, %Y')`"
 output: pdf_document
 geometry: margin=2.54cm
+editor_options: 
+  chunk_output_type: console
 ---
 
 ## OVERVIEW
@@ -49,9 +51,16 @@ In the R code chunk below, provide the code to:
 4. load the `vegan` R package (be sure to install if needed).  
 
 ```{r}
+getwd()
+setwd("/Users/ericanadolski/GitHub/QB2023_Nadolski/2.Worksheets/6.BetaDiversity")
 
-
-
+package.list <- c("vegan", "ade4", "viridis", "gplots", "indicspecies")
+for (package in package.list) {
+  if (!require(package, character.only = TRUE, quietly=TRUE)) {
+    install.packages(package)
+    library(package, character.only = TRUE)
+  }
+}
 
 ```
 
@@ -63,10 +72,10 @@ In the R code chunk below, do the following:
 2. explore the structure of the dataset.
 
 ```{r}
-# note, pleae do not print the dataset when submitting
+# note, please do not print the dataset when submitting
 
-
-
+data(doubs)
+str(doubs, max.level=1)
 ```
 
 ***Question 1***:  Describe some of the attributes of the `doubs` dataset.  
@@ -75,9 +84,9 @@ a.  How many objects are in `doubs`?
 b.  How many fish species are there in the `doubs` dataset?
 c.  How many sites are in the `doubs` dataset?
 
-> ***Answer 1a***:  
-> ***Answer 1b***:  
-> ***Answer 1c***:  
+> ***Answer 1a***:  4 data frames
+> ***Answer 1b***:  27 species
+> ***Answer 1c***:  30 sites
 
 ### Visualizing the Doubs River Dataset
 
@@ -87,9 +96,16 @@ a.  How does fish richness vary along the sampled reach of the Doubs River?
 b.  How does Brown Trout (*Salmo trutta*) abundance vary along the sampled reach of the Doubs River?
 c.  What do these patterns say about the limitations of using richness when examining patterns of biodiversity?
 
-> ***Answer 2a***:  
-> ***Answer 2b***:  
-> ***Answer 2c***:  
+```{r}
+fish <- doubs$fish
+env <- doubs$env
+specnumber(fish)
+
+```
+
+> ***Answer 2a***:  Richness increases on average  from sites 1-30.
+> ***Answer 2b***:  Brown trout abudance shows an opposite relationship to total richness, its abundance is higher at the first sites and decreases at later sites.
+> ***Answer 2c***:  This indicates that overall richness measures can mask interesting aspects of the data including patterns of individual species.
 
 ## 3) QUANTIFYING BETA-DIVERSITY
 
@@ -99,15 +115,45 @@ In the R code chunk below, do the following:
 2. use this function to analyze various aspects of $\beta$-diversity in the Doubs River.  
 
 ```{r}
+beta.w <- function(site.by.species="", sitenum1="", sitenum2="", pairwise=FALSE){
+  # ONLY if pairwise = TRUE do this
+  if (pairwise == TRUE){
+    # as a check, print error if needed arguments are missing
+    if (sitenum1 == "" | sitenum2 == ""){
+      print("Error: please specify sites to compare")
+      return(NA)}
+    # if our function made it this far, calculate pairwise Beta diversity
+    site1 = site.by.species[sitenum1,]
+    site2 = site.by.species[sitenum2,]
+    # remove absences
+    site1 = subset(site1, select = site1 > 0)
+    site2 = subset(site2, select = site2 > 0)
+    # gamma species pool
+    gamma = union(colnames(site1), colnames(site2))
+    # gamma richness
+    s = length(gamma)
+    # mean sample richness
+    a.bar = mean(c(specnumber(site1), specnumber(site2)))
+    b.w = round(s/a.bar - 1, 3)
+    return(b.w)
+  }
+  # otherwise, pairwise defaults to false, so do this like before:
+  else{
+    # convert to presence absence
+    SbyS.pa <- decostand(site.by.species, method="pa")
+    # number of sp in the region
+    S <- ncol(SbyS.pa[,which(colSums(SbyS.pa)>0)])
+    # avg richness at each site
+    a.bar <- mean(specnumber(SbyS.pa))
+    # convert to 3 decimal places
+    b.w <- round(S/a.bar, 3)
+    return(b.w)
+  }
+}
 
-
-
-
-
-
-
-
-
+beta.w(fish)
+beta.w(fish,1,2,pairwise=TRUE)
+beta.w(fish,1,10,pairwise=TRUE)
 
 ```
 
@@ -117,16 +163,16 @@ a.  Describe how local richness ($\alpha$) and turnover ($\beta$) contribute to 
 b.  Is the fish assemblage at site 1 more similar to the one at site 2 or site 10?
 c.  Using your understanding of the equation $\beta_{w} = \gamma/\alpha$, how would your interpretation of $\beta$ change if we instead defined beta additively (i.e., $\beta = \gamma - \alpha$)?
 
-> ***Answer 3a***:  
-> ***Answer 3b***:  
-> ***Answer 3c***:  
+> ***Answer 3a***:  Beta diversity explains many more nuances of the regional gamma diversity of fish in the Doubs river.
+> ***Answer 3b***:  Site 1 is more similar to site 2 than site 10 (0.5 < 0.714)
+> ***Answer 3c***:  Whittaker originally proposed that the relationship between alpha and gamma was multiplicative. If it was additive, then it would be interpreted as quantifying how much more dissimilarity (or species diversity) the whole dataset gamma contains than the average site alpha within the dataset.
 
 ### The Resemblance Matrix
 In order to quantify $\beta$-diversity for more than two samples, we need to introduce a new primary ecological data structure: the **Resemblance Matrix**. 
 
 ***Question 4***: How do incidence- and abundance-based metrics differ in their treatment of rare species?
 
-> ***Answer 4***:  
+> ***Answer 4***:  Incidence-based measures weigh rare species equally to abundant species in their contribution to diversity; abundance-based metrics weigh species based on their abundance so rare species get less weight overall.
 
 In the R code chunk below, do the following:  
 
@@ -136,14 +182,9 @@ In the R code chunk below, do the following:
 4. construct a resemblance matrix based on Bray-Curtis Distance ("fish.db").  
 
 ```{r}
-
-
-
-
-
-
-
-
+fish <- fish[-8,]
+fish.ds <- vegdist(fish, method="bray", binary=TRUE)
+fish.db <- vegdist(fish, method="bray")
 ```
 
 ***Question 5***: Using the distance matrices from above, answer the following questions:
@@ -151,8 +192,9 @@ In the R code chunk below, do the following:
 a. Does the resemblance matrix (`fish.db`) represent similarity or dissimilarity? What information in the resemblance matrix led you to arrive at your answer? 
 b. Compare the resemblance matrices (`fish.db` or `fish.ds`) you just created. How does the choice of the Sørensen or Bray-Curtis distance influence your interpretation of site (dis)similarity?
 
-> ***Answer 5a***:  
-> ***Answer 5b***:
+> ***Answer 5a***:  The values in fish.db represent dissimilarity, so closer to 0 means more similar and closer to 1 means more dissimilar. I deduced this because the earlier sites has higher values pairwise to the later sites, and the later sites had lower values pairwise with other later sites.
+
+> ***Answer 5b***: The two methods generate overall similar sets of values.
 
 ## 4) VISUALIZING BETA-DIVERSITY
 
@@ -165,15 +207,11 @@ In the R code chunk below, do the following:
 3. use the `levelplot()` function to create a heatmap of fish abundances in the Doubs River.
 
 ```{r}
+order <- rev(attr(fish.db, "Labels"))
 
-
-
-
-
-
-
-
-
+levelplot(as.matrix(fish.db)[,order], aspect="iso", col.regions=inferno,
+          xlab="Doubs Site", ylab= "Doubs Site", scales=list(cex=0.5), 
+          main= "Bray-Curtis Distance")
 
 ```
 
@@ -185,20 +223,15 @@ In the R code chunk below, do the following:
 2. plot your cluster analysis (use either `hclust` or `heatmap.2`). 
 
 ```{r} 
+fish.ward <- hclust(fish.db, method= "ward.D2")
 
-
-
-
-
-
-
-
-
+par(mar = c(1, 5, 2, 2) + 0.1)
+plot(fish.ward, main="Doubs River Fish: Ward's Clustering", ylab= "Squared Bray-Curtis Distance")
 ```
 
 ***Question 6***: Based on cluster analyses and the introductory plots that we generated after loading the data, develop an ecological hypothesis for fish diversity the `doubs` data set? 
 
-> ***Answer 6***: 
+> ***Answer 6***: Ecological hypothesis: later sites that are lower down the river are more similar in these environmental qualities: _____ and this explains the fish diversity.
 
 ### C.  Ordination
 
@@ -213,15 +246,27 @@ In the R code chunk below, do the following:
 5. identify influential species and add species coordinates to PCoA plot.
 
 ```{r}
+fish.pcoa <- cmdscale(fish.db, eig=TRUE, k=3)
 
+explainvar1 <- round(fish.pcoa$eig[1] / sum(fish.pcoa$eig), 3) * 100
+explainvar2 <- round(fish.pcoa$eig[2] / sum(fish.pcoa$eig), 3) * 100
+explainvar3 <- round(fish.pcoa$eig[3] / sum(fish.pcoa$eig), 3) * 100
+sum.eig <- sum(explainvar1, explainvar2, explainvar3)
 
-
-
-
-
-
-
-
+par(mar = c(5, 5, 1, 2) + 0.1)
+pcoa <- plot(fish.pcoa$points[ ,1], fish.pcoa$points[ ,2], ylim = c(-0.2, 0.7),
+     xlab= paste("PCoA 1 (", explainvar1, "%)", sep = ""),
+     ylab= paste("PCoA 2 (", explainvar2, "%)", sep = ""),
+     pch = 16, cex = 2.0, type = "n", cex.lab = 1.5,
+     cex.axis=1.2, axes=FALSE);
+axis(side = 1, labels = T, lwd.ticks = 2, cex.axis = 1.2, las = 1);
+axis(side = 2, labels = T, lwd.ticks = 2, cex.axis = 1.2, las = 1);
+abline(h = 0, v = 0, lty = 3);
+box(lwd = 2);
+points(fish.pcoa$points[ ,1], fish.pcoa$points[ ,2],
+       pch = 19, cex = 3, bg = "gray", col = "gray");
+text(fish.pcoa$points[ ,1], fish.pcoa$points[ ,2],
+     labels = row.names(fish.pcoa$points))
 ```
 
 In the R code chunk below, do the following:  
@@ -229,12 +274,100 @@ In the R code chunk below, do the following:
 1. identify influential species based on correlations along each PCoA axis (use a cutoff of 0.70), and
 2. use a permutation test (999 permutations) to test the correlations of each species along each axis.
 
+```{r, echo=FALSE}
+# making add.spec.scores function
+
+`add.spec.scores.class` <-
+  function(ordi,comm,method="cor.scores",multi=1,Rscale=F,scaling="1") {
+    ordiscores <- scores(ordi,display="sites")
+    n <- ncol(comm)
+    p <- ncol(ordiscores)
+    specscores <- array(NA,dim=c(n,p))
+    rownames(specscores) <- colnames(comm)
+    colnames(specscores) <- colnames(ordiscores)
+    if (method == "cor.scores") {
+      for (i in 1:n) {
+        for (j in 1:p) {specscores[i,j] <- cor(comm[,i],ordiscores[,j],method="pearson")}
+      }
+    }
+    if (method == "wa.scores") {specscores <- wascores(ordiscores,comm)}
+    if (method == "pcoa.scores") {
+      rownames(ordiscores) <- rownames(comm)
+      eigenv <- ordi$eig
+      accounted <- sum(eigenv)
+      tot <- 2*(accounted/ordi$GOF[2])-(accounted/ordi$GOF[1])
+      eigen.var <- eigenv/(nrow(comm)-1)
+      neg <- length(eigenv[eigenv<0])
+      pos <- length(eigenv[eigenv>0])
+      tot <- tot/(nrow(comm)-1)
+      eigen.percen <- 100*eigen.var/tot
+      eigen.cumpercen <- cumsum(eigen.percen)
+      constant <- ((nrow(comm)-1)*tot)^0.25
+      ordiscores <- ordiscores * (nrow(comm)-1)^-0.5 * tot^-0.5 * constant
+      p1 <- min(p, pos)
+      for (i in 1:n) {
+        for (j in 1:p1) {
+          specscores[i,j] <- cor(comm[,i],ordiscores[,j])*sd(comm[,i])/sd(ordiscores[,j])
+          if(is.na(specscores[i,j])) {specscores[i,j]<-0}
+        }
+      }
+      if (Rscale==T && scaling=="2") {
+        percen <- eigen.var/tot
+        percen <- percen^0.5
+        ordiscores <- sweep(ordiscores,2,percen,"/")   
+        specscores <- sweep(specscores,2,percen,"*")
+      }
+      if (Rscale==F) {
+        specscores <- specscores / constant
+        ordiscores <- ordi$points
+      }        
+      ordi$points <- ordiscores
+      ordi$eig <- eigen.var
+      ordi$eig.percen <- eigen.percen
+      ordi$eig.cumpercen <- eigen.cumpercen
+      ordi$eigen.total <- tot
+      ordi$R.constant <- constant
+      ordi$Rscale <- Rscale
+      ordi$scaling <- scaling
+    }
+    specscores <- specscores * multi    
+    ordi$cproj <- specscores
+    return(ordi)
+  }
+
+```
+
 ```{r}
+# now calculating relative abundance of each fish at each site to calculate and add spec scores
+fishREL <- fish
+for(i in 1:nrow(fish)){
+  fishREL[i, ] = fish[i, ] / sum(fish[i, ])
+}
 
+fish.pcoa <- add.spec.scores.class(fish.pcoa,fishREL, method = "pcoa.scores")
 
+plot(fish.pcoa$points[ ,1], fish.pcoa$points[ ,2], ylim = c(-0.2, 0.7),
+     xlab= paste("PCoA 1 (", explainvar1, "%)", sep = ""),
+     ylab= paste("PCoA 2 (", explainvar2, "%)", sep = ""),
+     pch = 16, cex = 2.0, type = "n", cex.lab = 1.5,
+     cex.axis=1.2, axes=FALSE);
+axis(side = 1, labels = T, lwd.ticks = 2, cex.axis = 1.2, las = 1);
+axis(side = 2, labels = T, lwd.ticks = 2, cex.axis = 1.2, las = 1);
+abline(h = 0, v = 0, lty = 3);
+box(lwd = 2);
+points(fish.pcoa$points[ ,1], fish.pcoa$points[ ,2],
+       pch = 19, cex = 3, bg = "gray", col = "gray");
+text(fish.pcoa$points[ ,1], fish.pcoa$points[ ,2],
+     labels = row.names(fish.pcoa$points));
+text(fish.pcoa$cproj[ ,1], fish.pcoa$cproj[ ,2],
+     labels = row.names(fish.pcoa$cproj), col = "black")
 
+spe.corr <- add.spec.scores.class(fish.pcoa, fishREL, method = "cor.scores")$cproj
+corrcut <- 0.7 #user defined cutoff
+imp.spp <- spe.corr[abs(spe.corr[ ,1]) >= corrcut | abs(spe.corr[ ,2]) >= corrcut]
 
-
+# permutation test for species abundances across axes
+fit <- envfit(fish.pcoa, fishREL, perm=999)
 
 ```
 
@@ -243,8 +376,8 @@ In the R code chunk below, do the following:
 a.  Describe the grouping of sites in the Doubs River based on fish community composition.
 b.  Generate a hypothesis about which fish species are potential indicators of river quality.
 
-> ***Answer 7a***:  
-> ***Answer 7b***:   
+> ***Answer 7a***:  The 1st principal component separates out clusters of sites that contain Satr, and secondarily that contain Phph and Neba. The 2nd principal component separates out clusters of sites that contain Alal, and secondarily that contain Lece and Ruru. The rest of the fish species cluster tightly on the PCoA plot near the origin, meaning that they do not contribute heavily to the 1st or 2nd PCs.
+> ***Answer 7b***:   Satr, Phph, and Neba are more abundant at sites near the river source, where the water temperature is cooler, and the water is clearer and has higher oxygen levels; these fish can potential indicators of this type of river. In contrast, Alal, Lece, and Ruru are abundant downstream the river, where the water contains higher levels of sediments and therefore nutrients, there will be less light through the murkier water, and lower oxygen levels; these fish are potential indicators of this type of river environment.
 
 
 ## SYNTHESIS
@@ -252,3 +385,114 @@ b.  Generate a hypothesis about which fish species are potential indicators of r
 Load the dataset from that you and your partner are using for the team project. 
 Use one of the tools introduced in the beta diversity module to visualize your data. 
 Describe any interesting patterns and identify a hypothesis is relevant to the principles of biodiversity. 
+
+```{r, echo=FALSE}
+# relative abundance matrix
+Ponds.rel <- as.matrix(read.csv("/Users/ericanadolski/GitHub/TeamProject/Ponds.rel.csv", row.names=1))
+#sites 54-58 are missing some environmental data
+
+# subsetting total (DNA) and active (cDNA) libraries for each site
+
+keep_DNA <- c("BC001-DNA","BC002-DNA","BC003-DNA","BC004-DNA","BC005-DNA","BC010-DNA","BC015-DNA","BC016-DNA","BC018-DNA","BC020-DNA","BC048-DNA","BC049-DNA","BC051-DNA","BC105-DNA","BC108-DNA","BC262-DNA","BCL01-DNA","BCL03-DNA","HNF132-DNA","HNF133-DNA","HNF134-DNA","HNF144-DNA","HNF168-DNA","HNF185-DNA","HNF187-DNA","HNF189-DNA","HNF190-DNA","HNF191-DNA","HNF216-DNA","HNF217-DNA","HNF221-DNA","HNF224-DNA","HNF225-DNA","HNF229-DNA","HNF236-DNA","HNF237-DNA","HNF242-DNA","HNF250-DNA","HNF267-DNA","HNF269-DNA","HNF279-DNA","YSF004-DNA","YSF117-DNA","YSF295-DNA","YSF296-DNA","YSF298-DNA","YSF300-DNA","YSF44-DNA","YSF45-DNA","YSF46-DNA","YSF47-DNA","YSF65-DNA","YSF66-DNA","YSF67-DNA","YSF69-DNA","YSF70-DNA","YSF71-DNA","YSF74-DNA")
+
+keep_cDNA <- c("BC001-cDNA","BC002-cDNA","BC003-cDNA","BC004-cDNA","BC005-cDNA","BC010-cDNA","BC015-cDNA","BC016-cDNA","BC018-cDNA","BC020-cDNA","BC048-cDNA","BC049-cDNA","BC051-cDNA","BC105-cDNA","BC108-cDNA","BC262-cDNA","BCL01-cDNA","BCL03-cDNA","HNF132-cDNA","HNF133-cDNA","HNF134-cDNA","HNF144-cDNA","HNF168-cDNA","HNF185-cDNA","HNF187-cDNA","HNF189-cDNA","HNF190-cDNA","HNF191-cDNA","HNF216-cDNA","HNF217-cDNA","HNF221-cDNA","HNF224-cDNA","HNF225-cDNA","HNF229-cDNA","HNF236-cDNA","HNF237-cDNA","HNF242-cDNA","HNF250-cDNA","HNF267-cDNA","HNF269-cDNA","HNF279-cDNA","YSF004-cDNA","YSF117-cDNA","YSF295-cDNA","YSF296-cDNA","YSF298-cDNA","YSF300-cDNA","YSF44-cDNA","YSF45-cDNA","YSF46-cDNA","YSF47-cDNA","YSF65-cDNA","YSF66-cDNA","YSF67-cDNA","YSF69-cDNA","YSF70-cDNA","YSF71-cDNA","YSF74-cDNA")
+
+# Active libraries - only 55
+active <- Ponds.rel[rownames(Ponds.rel) %in% keep_cDNA, ]      # Extract rows from matrix
+ 
+# total libraries - 58
+total <- Ponds.rel[rownames(Ponds.rel) %in% keep_DNA, ]      # Extract rows from matrix
+row.names(total) <- c("B001","B002","B003","B004","B005","B010","B015","B016","B018","B020","B048","B049","B051","B105","B108","B262","BL01","BL03","H132","H133","H134","H144","H168","H185","H187","H189","H190","H191","H216","H217","H221","H224","H225","H229","H236","H237","H242","H250","H267","H269","H279","Y004","Y117","Y295","Y296","Y298","Y300","Y44","Y45","Y46","Y47","Y65","Y66","Y67","Y69","Y70","Y71","Y74")
+
+row.names(active) <- c("B001","B003","B004","B005","B015","B016","B018","B020","B048","B049","B051","B105","B108","B262","BL01","BL03","H132","H133","H134","H144","H168","H185","H187","H189","H190","H191","H216","H217","H224","H225","H229","H236","H237","H242","H250","H267","H269","H279","Y004","Y117","Y295","Y296","Y298","Y300","Y44","Y45","Y46","Y47","Y65","Y66","Y67","Y69","Y70","Y71","Y74")
+```
+
+```{r}
+# Bray Curtis resemblance matrix
+total.db <- vegdist(total, method="bray")
+
+# Heatmap 
+order.p <- rev(attr(total.db, "Labels"))
+
+levelplot(as.matrix(total.db)[,order.p], aspect="iso", col.regions=inferno,
+          xlab="Pond Site", ylab= "Pond Site", scales=list(cex=0.5), 
+          main= "Bray-Curtis Distance")
+
+# Wards cluster analysis
+total.ward <- hclust(total.db, method= "ward.D2")
+
+par(mar = c(1, 5, 2, 2) + 0.1)
+plot(total.ward, main="Indiana Pond Bacteria: Ward's Clustering", ylab= "Squared Bray-Curtis Distance")
+
+# Principal Component Analysis - TOTAL
+total.pcoa <- cmdscale(total.db, eig=TRUE, k=3)
+
+exvar1 <- round(total.pcoa$eig[1] / sum(total.pcoa$eig), 3) * 100
+exvar2 <- round(total.pcoa$eig[2] / sum(total.pcoa$eig), 3) * 100
+exvar3 <- round(total.pcoa$eig[3] / sum(total.pcoa$eig), 3) * 100
+total.sum.eig <- sum(exvar1, exvar2, exvar3)
+
+# PCoA Plot PC1 x PC2
+plot(total.pcoa$points[ ,1], total.pcoa$points[ ,2], #ylim = c(-0.2, 0.7),
+     xlab= paste("PCoA 1 (", exvar1, "%)", sep = ""),
+     ylab= paste("PCoA 2 (", exvar2, "%)", sep = ""),
+     pch = 16, cex = 2.0, type = "n", cex.lab = 1.5,
+     cex.axis=1.2, axes=FALSE);
+axis(side = 1, labels = T, lwd.ticks = 2, cex.axis = 1.2, las = 1);
+axis(side = 2, labels = T, lwd.ticks = 2, cex.axis = 1.2, las = 1);
+abline(h = 0, v = 0, lty = 3);
+box(lwd = 2);                                        
+points(total.pcoa$points[ ,1], total.pcoa$points[ ,2],
+       pch = 1, cex = 2, bg = "red", col = "red");
+text(total.pcoa$points[ ,1], total.pcoa$points[ ,2],
+     labels = row.names(total.pcoa$points), adj=1)
+
+# PCoA Plot PC1 x PC 3
+plot(total.pcoa$points[ ,1], total.pcoa$points[ ,3], #ylim = c(-0.2, 0.7),
+     xlab= paste("PCoA 1 (", exvar1, "%)", sep = ""),
+     ylab= paste("PCoA 3 (", exvar3, "%)", sep = ""),
+     pch = 16, cex = 2.0, type = "n", cex.lab = 1.5,
+     cex.axis=1.2, axes=FALSE);
+axis(side = 1, labels = T, lwd.ticks = 2, cex.axis = 1.2, las = 1);
+axis(side = 2, labels = T, lwd.ticks = 2, cex.axis = 1.2, las = 1);
+abline(h = 0, v = 0, lty = 3);
+box(lwd = 2);                                        
+points(total.pcoa$points[ ,1], total.pcoa$points[ ,3],
+       pch = 1, cex = 2, bg = "blue", col = "blue");
+text(total.pcoa$points[ ,1], total.pcoa$points[ ,3],
+     labels = row.names(total.pcoa$points), adj=1)
+
+## would be great to get the points colored by state park
+
+# Principal Component Analysis - ACTIVE
+# bray curtis
+active.db <- vegdist(active, method="bray")
+active.pcoa <- cmdscale(active.db, eig=TRUE, k=3)
+
+a.exvar1 <- round(active.pcoa$eig[1] / sum(active.pcoa$eig), 3) * 100
+a.exvar2 <- round(active.pcoa$eig[2] / sum(active.pcoa$eig), 3) * 100
+a.exvar3 <- round(active.pcoa$eig[3] / sum(active.pcoa$eig), 3) * 100
+active.sum.eig <- sum(a.exvar1, a.exvar2, a.exvar3)
+
+# PCoA Plot PC1 x PC2
+plot(active.pcoa$points[ ,1], active.pcoa$points[ ,2], #ylim = c(-0.2, 0.7),
+     xlab= paste("PCoA 1 (", a.exvar1, "%)", sep = ""),
+     ylab= paste("PCoA 2 (", a.exvar2, "%)", sep = ""),
+     pch = 16, cex = 2.0, type = "n", cex.lab = 1.5,
+     cex.axis=1.2, axes=FALSE);
+axis(side = 1, labels = T, lwd.ticks = 2, cex.axis = 1.2, las = 1);
+axis(side = 2, labels = T, lwd.ticks = 2, cex.axis = 1.2, las = 1);
+abline(h = 0, v = 0, lty = 3);
+box(lwd = 2);                                        
+points(active.pcoa$points[ ,1], active.pcoa$points[ ,2],
+       pch = 1, cex = 2, bg = "red", col = "red");
+text(active.pcoa$points[ ,1], active.pcoa$points[ ,2],
+     labels = row.names(active.pcoa$points), adj=1)
+
+## sorry that the plot axes don't show up on the knitted PDF, I don't know why because they show up in R Studio...
+
+```
+
+> ***Synthesis Answer***:  The sites show large variation overall, notably with two main clusters as shown by the heatmap and Ward's clustering. There were three grouped site locations (Brown County State Park, Hoosier National Forest, and Yellowwood State Forest), and sites within each area generally clustered closer together than with sites from another area, meaning sites within an area generally were more similar in diversity than they were similar sites from a different area. B sites and Y sites show this trend the most strongly, while H sites actually showed split clusters, with some sites clustering with the B cluster and others with the Y cluster. The 1st principal component of the PCoA on the TOTAL samples captures 43% of the diversity among sites, and plotting it shows that it split the B cluster away from the Y cluster. Plotting the 2nd and 3rd PCs did not separate the tight B cluster but did capture variation among the Y and H sites, 11% and 5% of the overall variation, respectively. An initial hypothesis that we were considering was that dormancy (including total DNA versus only active RNA) may be an interesting driver of Beta diversity patterns in this pond dataset; however, comparison of these initial visualizations (first two PCoA plots of TOTAL vs. third plot of ACTIVE) indicate that the patterns do not differ much at all when dormancy is factored in. I will start considering additional hypotheses regarding environmental variables that might explain the stark difference in diversity of B from Y and most of H (shown in PC 1), and others that could explain the additional variation among the H and Y sites (shown in PC 2 and 3).
+
+
