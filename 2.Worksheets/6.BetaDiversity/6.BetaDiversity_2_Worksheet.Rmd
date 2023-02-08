@@ -4,6 +4,8 @@ author: "Erica Nadolski; Z620: Quantitative Biodiversity, Indiana University"
 date: "`r format(Sys.time(), '%d %B, %Y')`"
 output: pdf_document
 geometry: margin=2.54cm
+editor_options: 
+  chunk_output_type: console
 ---
 
 ## OVERVIEW
@@ -44,7 +46,6 @@ In the R code chunk below, provide the code to:
 ```{r}
 rm(list=ls())
 getwd()
-setwd("/Users/emnadols/GitHub/QB2023_Nadolski/2.Worksheets/6.BetaDiversity")
 
 package.list <- c("vegan", "ade4", "viridis", "gplots", "indicspecies")
 for (package in package.list) {
@@ -87,7 +88,6 @@ summary(indval)
 # phi coefficient of association
 fish.rel <- decostand(fish, method="total")
 phi <- multipatt(fish.rel, cluster=quality, func="r.g", control=how(nperm=999))
-summary(phi)
 ```
 
 ***Question 1***: Based on the PERMANOVA, IndVal, and phi coefficient analyses, what did you learn about the relationship between habitat quality and the fish species composition?
@@ -188,18 +188,50 @@ In the code chunk below,
 5. Partition the variation among sites into the relative importance of space, environment, spatially structured environment, and residuals,
 6. Plot the variation partitioning output to visualize it.  
 ```{r}
+doubs.dbrda$anova
+# create a matrix model for our environmental data
+env.mod <- model.matrix( ~oxy + bdo + nit, as.data.frame(env.chem))[,-1]
+# spatial model
+rs <- rowSums(fish)/sum(fish) #weight each site by relative abundance
+doubs.pcnmw <- pcnm(dist(doubs$xy[-8,]), w=rs, dist.ret=T) # perform PCNM
+doubs.pcnmw$values > 0 # keep only the positive eigenvalues
+# perform model selection 
+doubs.space <- as.data.frame(scores(doubs.pcnmw))
+doubs.pcnm.mod0 <- dbrda(fish.db ~ 1, doubs.space)
+doubs.pcnm.mod1 <- dbrda(fish.db ~ ., doubs.space)
+step.pcnm <- ordiR2step(doubs.pcnm.mod0, doubs.pcnm.mod1, perm.max=200)
+plot(step.pcnm)
+# step.pcnm now contains the selected model
+step.pcnm$anova
+# construct a spatial model using only selected PCNM axes
+space.mod <- model.matrix(~ PCNM2 + PCNM3 + PCNM5 + PCNM1 + PCNM13 + PCNM16 + PCNM6, doubs.space)[,-1]
 
+# Partial constrained ordination to determine independent and joint explanatory power of spatial and environmental variables
+# constrained ordinations
+doubs.total.env <- dbrda(fish.db ~ env.mod)
+doubs.total.space <- dbrda(fish.db ~ space.mod) 
+# partial constrained ordinations
+doubs.env.cond.space <- dbrda(fish.db ~ env.mod + Condition(space.mod))
+doubs.space.cond.env <- dbrda(fish.db ~ space.mod + Condition(env.mod)) 
+# test for significance of the dbrda fractions
+permutest(doubs.env.cond.space, permutations=999)
+permutest(doubs.space.cond.env, permutations=999)
+permutest(doubs.total.env, permutations=999)
+permutest(doubs.total.space, permutations=999)
+# variation partitioning
+doubs.varpart <- varpart(fish.db, env.mod, space.mod)
+doubs.varpart
 
-
-
-
-
-
+par(mar=c(2,2,2,2))
+plot(doubs.varpart);
+text(1,0.25, "Space");
+text(0,0.25, "Env");
+mtext("Variation Partitioning of\nDoubs Fish Diversity", side=3,line=-3)
 ```
 
 ***Question 4***: Interpret the variation partitioning results.   
 
-> ***Answer 4***: 
+> ***Answer 4***: The variance partitioning indicates that there are significant associations of environment and space independently and together; spatial distribution explains 30% of the variation, environmental conditions explain 12%, and the joint interaction/correlation between both explains another 27% of variation, with residuals of 0.31.
 
 ## SYNTHESIS
 
@@ -207,3 +239,99 @@ Load the dataset from that you and your partner are using for the team project.
 Use one of the hypothesis-testing tools introduced in the beta diversity module. 
 Interpret the findings of your data with respect to principles of biodiversity. 
 
+```{r, echo=FALSE}
+library(dplyr)
+
+## Data input and setup 
+Ponds.env <- as.matrix(read.csv("/Users/ericanadolski/GitHub/TeamProject/Ponds.env.csv", row.names=1)) # environmental data
+Ponds.rel <- as.matrix(read.csv("/Users/ericanadolski/GitHub/TeamProject/Ponds.rel.csv", row.names=1))
+
+# env data missing for "HNF279", 189, 190, 191, 236, 237
+
+keep_DNA <- c("BC001-DNA","BC002-DNA","BC003-DNA","BC004-DNA","BC005-DNA","BC010-DNA","BC015-DNA","BC016-DNA","BC018-DNA","BC020-DNA","BC048-DNA","BC049-DNA","BC051-DNA","BC105-DNA","BC108-DNA","BC262-DNA","BCL01-DNA","BCL03-DNA","HNF132-DNA","HNF133-DNA","HNF134-DNA","HNF144-DNA","HNF168-DNA","HNF185-DNA","HNF187-DNA","HNF216-DNA","HNF217-DNA","HNF221-DNA","HNF224-DNA","HNF225-DNA","HNF229-DNA","HNF242-DNA","HNF250-DNA","HNF267-DNA","HNF269-DNA","YSF004-DNA","YSF117-DNA","YSF295-DNA","YSF296-DNA","YSF298-DNA","YSF300-DNA","YSF44-DNA","YSF45-DNA","YSF46-DNA","YSF47-DNA","YSF65-DNA","YSF66-DNA","YSF67-DNA","YSF69-DNA","YSF70-DNA","YSF71-DNA","YSF74-DNA") # "HNF189-DNA","HNF190-DNA","HNF191-DNA","HNF236-DNA","HNF237-DNA","HNF279-DNA")
+
+total <- Ponds.rel[rownames(Ponds.rel) %in% keep_DNA, ]      # Extract rows from matrix
+row.names(total) <- c("BC001","BC002","BC003","BC004","BC005","BC010","BC015","BC016","BC018","BC020","BC048","BC049","BC051","BC105","BC108","BC262","BCL01","BCL03","HNF132","HNF133","HNF134","HNF144","HNF168","HNF185","HNF187","HNF216","HNF217","HNF221","HNF224","HNF225","HNF229","HNF242","HNF250","HNF267","HNF269","YSF004","YSF117","YSF295","YSF296","YSF298","YSF300","YSF44","YSF45","YSF46","YSF47","YSF65","YSF66","YSF67","YSF69","YSF70","YSF71","YSF74") # "HNF189","HNF190","HNF191","HNF236","HNF237","HNF279")
+
+
+env <- apply(Ponds.env[,1:20], 2, function(x) as.numeric(as.character(x))) # get data to numeric type
+row.names(env) <- c("BC001","BC002","BC003","BC004","BC005","BC010","BC015","BC016","BC018","BC020","BC048","BC049","BC051","BC105","BC108","BC262","BCL01","BCL03","HNF132","HNF133","HNF134","HNF144","HNF168","HNF185","HNF187","HNF189","HNF190","HNF191","HNF216","HNF217","HNF221","HNF224","HNF225","HNF229","HNF236","HNF237","HNF242","HNF250","HNF267","HNF269","HNF279","YSF004","YSF117","YSF295","YSF296","YSF298","YSF300","YSF44","YSF45","YSF46","YSF47","YSF65","YSF66","YSF67","YSF69","YSF70","YSF71","YSF74")
+env <- env[1:53,-1] # remove sites with NA; tried na.action=na.exclude(), na.roughfix but didn't work
+env <- env[-34,]
+```
+
+### i.  Mantel Test
+In the R code chunk below, do the following:   
+
+1. create distance matrices for both fish communities and environmental factors, and
+2. use a Mantel test to test the hypothesis that fish assemblages are correlated with stream environmental variables.
+
+```{r}
+# define matrices
+OTU.dist <- vegdist(total, method="bray")
+pond.env.dist <- vegdist(env, method="euclid")
+
+# mantel test
+mantel(OTU.dist,pond.env.dist)
+
+```
+
+### Constrained Ordination of Indiana Ponds data
+
+1. create an environmental matrix of the pond data using forward and reverse selection of variables
+2. conduct a redundancy analysis on the bacterial assemblages
+3. use a permutation test to determine the significance of the constrained analysis,
+4. use a permutation test to determine the correlation of each environmental factor on the constrained axes,
+5. calculate the explained variation on the first and second constrained axes,
+6. plot the constrained ordination results including labeled points for each site, and
+7. add vectors that demonstrate the influence of each environmental factor the constrained ordination.   
+
+```{r}
+# Constrained Ordination
+pond.dbrda <- dbrda(total ~ ., as.data.frame(env)) #perform dbRDA
+ordiplot(pond.dbrda)
+# first model only intercept
+pond.dbrda.mod0 <- dbrda(total ~ 1, as.data.frame(env)) 
+ordiplot(pond.dbrda.mod0) # no vectors constrained here, so its a simple MDS (PCoA)
+# now model with all explanatory variables
+pond.dbrda.mod1 <- dbrda(total ~ ., as.data.frame(env))
+# now iterate through all combos of explanatory variables, return model with lowest AIC
+# pond.dbrda <- ordiR2step(pond.dbrda.mod0,pond.dbrda.mod1, permutations = how(nperm = 200))
+# couldnt get ordiR2step to work, error that upper scope cannot be reached
+pond.dbrda <- ordistep(pond.dbrda.mod0,pond.dbrda.mod1, permutations = how(nperm = 200))
+# look at model that was selected
+pond.dbrda$call
+pond.dbrda$anova
+ordiplot(pond.dbrda)
+# permutation tests to evaluate significance
+permutest(pond.dbrda, permutations=999)
+envfit(pond.dbrda, env[,c()], perm=999)
+#calculate explained variation
+pond.dbrda.explainvar1 <- round(pond.dbrda$CCA$eig[1] / sum(c(pond.dbrda$CCA$eig, pond.dbrda$CA$eig)), 3) *100
+pond.dbrda.explainvar2 <- round(pond.dbrda$CCA$eig[2] / sum(c(pond.dbrda$CCA$eig, pond.dbrda$CA$eig)), 3) *100
+
+# now plot selected model, define plot parameters
+par(mar=c(5,5,4,4)+0.1)
+pond.vectors <- scores(pond.dbrda,display="bp")
+plot(scores(pond.dbrda, display="wa"), xlab=paste("dbRDA 1 (",pond.dbrda.explainvar1,"%)", sep=""), 
+     ylab=paste("dbRDA 2 (", pond.dbrda.explainvar2, "%)", sep=""),
+     pch=16, cex=2.0, type="n", cex.lab=1.5, cex.axis=1.2, axes=FALSE);
+axis(side=1, labels=T, lwd.ticks=2, cex.axis=1.2,las=1);
+axis(side=2, labels=T, lwd.ticks=2, cex.axis=1.2,las=1);
+abline(h=0,v=0,lty=3);
+box(lwd=2);
+points(scores(pond.dbrda,display="wa"), pch=19,cex=3,bg="gray",col="gray");
+text(scores(pond.dbrda,display="wa"),labels=row.names(scores(pond.dbrda,display="wa")));
+arrows(0,0,pond.vectors[,1], pond.vectors[,2], lwd=2, lty=1, length=0.2, col="red");
+text(pond.vectors[,1], pond.vectors[,2], pos=3,labels=row.names(pond.vectors));
+axis(side=3, lwd.ticks=2, cex.axis=1.2,las=1, col="red", lwd=2.2,
+     at=pretty(range(pond.vectors[,1]))*2, labels=pretty(range(pond.vectors[,1])));
+axis(side=4, lwd.ticks=2, cex.axis=1.2,las=1, col="red", lwd=2.2,
+     at=pretty(range(pond.vectors[,2]))*2, labels=pretty(range(pond.vectors[,2])))
+
+## something isn't quite right about the plot output --- is it just the sizing or other?
+
+## note for Erica to think about -- way to add spec scores like from last week, with a cut off only showing the most correlated OTUs?
+```
+
+> ***Synthesis Answer***: According to the Mantel test, 7% of the variation in pond bacterial communities can be explained by association with the ponds' corresponding environmental variables. This is much lower than what was found with the Doubs river data, but the bacterial OTUs are much more diverse than the fish species in the Doubs. The constrained ordination via dbRDA indicated that the variable "chla" was associated with much of the variation in pond data.
