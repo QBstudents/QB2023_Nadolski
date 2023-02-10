@@ -1,6 +1,6 @@
 ---
 title: '7\. Worksheet: Diversity Synthesis'
-author: "Student Name; Z620: Quantitative Biodiversity, Indiana University"
+author: "Erica Nadolski; Z620: Quantitative Biodiversity, Indiana University"
 date: "`r format(Sys.time(), '%d %B, %Y')`"
 output: pdf_document
 geometry: margin=2.54cm
@@ -72,6 +72,31 @@ In smaller groups, take 15 minutes to brainstorm questions, code, statistical te
 **Answer 1:** Use the space below to generate a rarefaction curve/sample coverage based on the data we collected in class for each community. Make sure to annotate your code using # symbols so others (including instructors) understand what you have done and why you have done it. 
 
 ```{r}
+require("vegan")
+
+# read in data
+gummy.total <- read.csv("/Users/emnadols/GitHub/QB2023_Nadolski/2.Worksheets/7.DiversitySynthesis/QBDataWranglingLab.csv",header=TRUE, row.names=2)
+# removing disturbance data
+gummy <- gummy.total[-2,]
+gummy <- gummy[-3,]
+
+S.obs <- function(x = ""){
+  rowSums(x > 0) * 1
+}
+
+
+# Calculate observed richness for all samples in gummy
+gummy.Richness <- S.obs(gummy[,2:31])
+# Determine the size of the smallest sample
+sample.sizes <- rowSums(gummy[,2:31])
+min.N <- min(sample.sizes)
+# Use the `rarefy()` function to rarefy each sample to this level
+gummy.rarefy <- rarefy(x = gummy[,2:31], sample=min.N, se=TRUE)
+
+# Plot the rarefaction results, add the 1:1 line and label
+rarecurve(x = gummy[,2:31], step=20, col="blue", cex=0.6, las=1);
+abline(0, 1, col="red");
+text(20, 20, "1:1", pos=2, col="red")
 ```
 
 
