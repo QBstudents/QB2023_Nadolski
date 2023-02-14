@@ -155,8 +155,9 @@ rownames(gummy2) <- c("Erica","Lauren","Atalanta","Anna","Joy","Thomas","Jonatha
 
 ```{r}
 # I figured out how to use mfrow() to generate a grid of plots but I cant get them to resize themselves within the grid, without cutting off axes labels so I'm not going to knit the code that way
-#par(mfrow = c(2,2), 
-    #mar = c(0,0,2,1))
+
+# par(mfrow = c(2,2), 
+    # mar = c(0,0,2,1))
 
 # plot of species abundance across sites
 barplot(gummy, main="Gummy Species Abundance Within Ecosystems",
