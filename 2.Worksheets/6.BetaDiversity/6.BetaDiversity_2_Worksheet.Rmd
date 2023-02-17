@@ -243,8 +243,8 @@ Interpret the findings of your data with respect to principles of biodiversity.
 library(dplyr)
 
 ## Data input and setup 
-Ponds.env <- as.matrix(read.csv("/Users/ericanadolski/GitHub/TeamProject/Ponds.env.csv", row.names=1)) # environmental data
-Ponds.rel <- as.matrix(read.csv("/Users/ericanadolski/GitHub/TeamProject/Ponds.rel.csv", row.names=1))
+Ponds.env <- as.matrix(read.csv("/Users/ericanadolski/GitHub/team2/Ponds.env.csv", row.names=1)) # environmental data
+Ponds.rel <- as.matrix(read.csv("/Users/ericanadolski/GitHub/team2/Ponds.rel.csv", row.names=1))
 
 # env data missing for "HNF279", 189, 190, 191, 236, 237
 
@@ -311,7 +311,6 @@ pond.dbrda.explainvar1 <- round(pond.dbrda$CCA$eig[1] / sum(c(pond.dbrda$CCA$eig
 pond.dbrda.explainvar2 <- round(pond.dbrda$CCA$eig[2] / sum(c(pond.dbrda$CCA$eig, pond.dbrda$CA$eig)), 3) *100
 
 # now plot selected model, define plot parameters
-par(mar=c(5,5,4,4)+0.1)
 pond.vectors <- scores(pond.dbrda,display="bp")
 plot(scores(pond.dbrda, display="wa"), xlab=paste("dbRDA 1 (",pond.dbrda.explainvar1,"%)", sep=""), 
      ylab=paste("dbRDA 2 (", pond.dbrda.explainvar2, "%)", sep=""),
@@ -329,7 +328,7 @@ axis(side=3, lwd.ticks=2, cex.axis=1.2,las=1, col="red", lwd=2.2,
 axis(side=4, lwd.ticks=2, cex.axis=1.2,las=1, col="red", lwd=2.2,
      at=pretty(range(pond.vectors[,2]))*2, labels=pretty(range(pond.vectors[,2])))
 
-## something isn't quite right about the plot output --- is it just the sizing or other?
+## plot output is odd because pond.vectors are values < 1 so they look tiny. is this an error in the code?
 
 ## note for Erica to think about -- way to add spec scores like from last week, with a cut off only showing the most correlated OTUs?
 ```
