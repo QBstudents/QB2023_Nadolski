@@ -447,6 +447,28 @@ points(total.pcoa$points[ ,1], total.pcoa$points[ ,2],
 text(total.pcoa$points[ ,1], total.pcoa$points[ ,2],
      labels = row.names(total.pcoa$points), adj=1)
 
+par(mar = c(2, 2, 2, 2) + 3)
+# PCoA Plot PC1 x PC2 colored by state park
+plot(total.pcoa$points[ ,1], total.pcoa$points[ ,2],
+     #xlim = c(-0.55, -0.3),
+     #ylim = c(-0.03, 0.01),
+     xlab= paste("PCoA 1 (", exvar1, "%)", sep = ""),
+     ylab= paste("PCoA 2 (", exvar2, "%)", sep = ""),
+     pch = 16, cex = 2.0, type = "n", cex.lab = 1.5,
+     cex.axis=1.2, axes=FALSE);
+axis(side = 1, labels = T, lwd.ticks = 2, cex.axis = 1.2, las = 1);
+axis(side = 2, labels = T, lwd.ticks = 2, cex.axis = 1.2, las = 1);
+abline(h = 0, v = 0, lty = 3);
+box(lwd = 2);                                        
+points(total.pcoa$points[1:18,1], total.pcoa$points[1:18,2],
+       pch = 20, cex = 2, bg = "blue", col = "blue"); # BC
+points(total.pcoa$points[19:41,1], total.pcoa$points[19:41,2],
+       pch = 20, cex = 2, bg = "red", col = "red"); # H
+points(total.pcoa$points[42:58,1], total.pcoa$points[42:58,2],
+       pch = 20, cex = 2, bg = "purple", col = "purple");# YW
+legend(x="topleft",,legend=c("Brown County", "Hoosier Natl. Forest", "Yellowood"),
+       fill=c("blue", "red","purple"))
+
 # PCoA Plot PC1 x PC 3
 plot(total.pcoa$points[ ,1], total.pcoa$points[ ,3], #ylim = c(-0.2, 0.7),
      xlab= paste("PCoA 1 (", exvar1, "%)", sep = ""),
